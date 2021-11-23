@@ -1,3 +1,11 @@
+mod bytecode;
+
+use bytecode::{Chunk, OpCode};
+
 fn main() {
-    println!("Hello, world!");
+    let mut chunk = Chunk::new();
+    chunk.append_op(OpCode::Return);
+
+    chunk.dissemble("test chunk");
+    std::process::exit(0);
 }

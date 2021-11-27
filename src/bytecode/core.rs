@@ -34,9 +34,9 @@ impl From<OpCode> for u8 {
 }
 
 pub struct Chunk {
-    pub(super) lines: Vec<u32>,
-    pub(super) code: Vec<u8>,
-    pub(super) constants: Vec<Value>,
+    pub lines: Vec<u32>,
+    pub code: Vec<u8>,
+    pub constants: Vec<Value>,
 }
 
 impl Chunk {

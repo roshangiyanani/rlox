@@ -14,6 +14,7 @@ impl InstructionMetadata {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum BytecodeParseError {
     UnknownInstruction(u8),
     InvalidConstantIndex(u8),
@@ -64,7 +65,6 @@ impl<'a> ChunkIterator<'a> {
 
 impl<'a> Iterator for ChunkIterator<'a> {
     type Item = (InstructionMetadata, Result<Instruction, BytecodeParseError>);
-
     fn next(&mut self) -> Option<Self::Item> {
         let pos = self.pos;
         let code = self.chunk.code.get(self.pos);
@@ -109,5 +109,89 @@ impl<'a> IntoIterator for &'a Chunk {
             chunk: &self,
             pos: 0,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        bytecode::{core::OpCode, Chunk, Instruction},
+        value::Value,
+    };
+
+    #[test]
+    fn normal() {
+        let mut chunk = Chunk::new();
+
+        let instructions = vec![
+            (1, Instruction::Constant(Value(3.0))),
+            (2, Instruction::Return),
+            (3, Instruction::Constant(Value(2.0))),
+            (3, Instruction::Return),
+        ];
+        chunk.add_instructions(&instructions);
+
+        let parsed: Vec<_> = chunk
+            .iter()
+            .map(|(metadata, parsed)| {
+                (
+                    metadata.line,
+                    parsed.expect("unable to parse test instruction stream"),
+                )
+            })
+            .collect();
+
+        assert_eq!(instructions, parsed);
+    }
+
+    #[test]
+    fn missing_constant() {
+        let chunk = Chunk {
+            code: vec![
+                OpCode::Return.into(),
+                OpCode::Constant.into(),
+                0,
+                OpCode::Return.into(),
+            ],
+            lines: vec![1, 2, 2, 3, 3],
+            constants: vec![],
+        };
+
+        let result: Vec<_> = chunk.iter().map(|(_, parsed)| parsed).collect();
+
+        assert_eq!(
+            result,
+            vec![
+                Ok(Instruction::Return),
+                Err(BytecodeParseError::InvalidConstantIndex(0)),
+                Ok(Instruction::Return),
+            ],
+        )
+    }
+
+    #[test]
+    fn early_eof() {
+        let chunk = Chunk {
+            code: vec![
+                OpCode::Return.into(),
+                OpCode::Constant.into(),
+                // no constant index
+            ],
+            lines: vec![1, 1, 1],
+            constants: vec![],
+        };
+
+        let result: Vec<_> = chunk.iter().map(|(_, parsed)| parsed).collect();
+
+        assert_eq!(
+            result,
+            vec![
+                Ok(Instruction::Return),
+                Err(BytecodeParseError::UnexpectedEndOfBytecode(
+                    OpCode::Constant
+                )),
+            ]
+        )
     }
 }

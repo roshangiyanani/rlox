@@ -1,4 +1,4 @@
 mod core;
 mod parser;
 
-pub use self::core::{Chunk, Instruction};
+pub use self::core::{Chunk, Instruction, OpCode};

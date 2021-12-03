@@ -2,7 +2,7 @@ mod bytecode;
 mod dissembler;
 mod value;
 
-use bytecode::{Chunk, OpCode};
+use bytecode::core::{Chunk, OpCode};
 use value::Value;
 
 fn main() {

@@ -84,12 +84,8 @@ impl Chunk {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        bytecode::{core::OpCode, Instruction},
-        value::Value,
-    };
-
-    use super::Chunk;
+    use super::*;
+    use crate::value::Value;
 
     #[test]
     fn add_return() {

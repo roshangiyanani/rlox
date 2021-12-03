@@ -115,10 +115,7 @@ impl<'a> IntoIterator for &'a Chunk {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        bytecode::{core::OpCode, Chunk, Instruction},
-        value::Value,
-    };
+    use crate::value::Value;
 
     #[test]
     fn normal() {

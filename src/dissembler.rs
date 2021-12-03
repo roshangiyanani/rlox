@@ -1,4 +1,4 @@
-use crate::bytecode::Chunk;
+use crate::bytecode::core::Chunk;
 
 impl Chunk {
     pub fn dissemble(&self, name: &str) {

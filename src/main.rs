@@ -1,26 +1,27 @@
 mod bytecode;
 mod dissembler;
 mod value;
+mod vm;
 
-use bytecode::core::{Chunk, OpCode};
+use bytecode::core::{Chunk, Instruction};
+use dissembler::DissemblerPrinter;
 use value::Value;
 
-fn main() {
-    let chunk = Chunk {
-        code: vec![
-            OpCode::Return.into(),
-            OpCode::Constant.into(),
-            0,
-            OpCode::Return.into(),
-            OpCode::Constant.into(),
-            1,
-            OpCode::Return.into(),
-        ],
-        lines: vec![1, 2, 2, 2, 3, 3, 3],
-        constants: vec![Value(3.0)],
-    };
+use crate::vm::VM;
 
-    chunk.dissemble("missing constant");
+fn main() {
+    let mut chunk = Chunk::new();
+
+    chunk.add_instructions(&[
+        (1, Instruction::Constant(Value(1.2))),
+        (2, Instruction::Constant(Value(3.1415))),
+        (2, Instruction::Return),
+        (3, Instruction::Constant(Value(f64::NAN))),
+    ]);
+    DissemblerPrinter::dissemble(&chunk, "chunk");
+
+    let vm = VM { chunk };
+    vm.interpret(true).expect("unable to interpret");
 
     std::process::exit(0);
 }

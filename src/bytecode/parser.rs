@@ -41,12 +41,12 @@ impl Display for BytecodeParseError {
     }
 }
 
-pub struct ChunkIterator<'a> {
+pub struct BytecodeParser<'a> {
     pub(crate) chunk: &'a Chunk,
     pub(crate) pos: usize,
 }
 
-impl<'a> ChunkIterator<'a> {
+impl<'a> BytecodeParser<'a> {
     fn read_constant(&mut self) -> Result<Instruction, BytecodeParseError> {
         self.pos += 1;
         if let Some(&constant_id) = self.chunk.code.get(self.pos - 1) {
@@ -63,7 +63,7 @@ impl<'a> ChunkIterator<'a> {
     }
 }
 
-impl<'a> Iterator for ChunkIterator<'a> {
+impl<'a> Iterator for BytecodeParser<'a> {
     type Item = (InstructionMetadata, Result<Instruction, BytecodeParseError>);
     fn next(&mut self) -> Option<Self::Item> {
         let pos = self.pos;
@@ -89,11 +89,11 @@ impl<'a> Iterator for ChunkIterator<'a> {
     }
 }
 
-impl FusedIterator for ChunkIterator<'_> {}
+impl FusedIterator for BytecodeParser<'_> {}
 
 impl Chunk {
-    pub fn iter(&self) -> ChunkIterator<'_> {
-        ChunkIterator {
+    pub fn iter(&self) -> BytecodeParser<'_> {
+        BytecodeParser {
             chunk: self,
             pos: 0,
         }
@@ -102,10 +102,10 @@ impl Chunk {
 
 impl<'a> IntoIterator for &'a Chunk {
     type Item = (InstructionMetadata, Result<Instruction, BytecodeParseError>);
-    type IntoIter = ChunkIterator<'a>;
+    type IntoIter = BytecodeParser<'a>;
 
     fn into_iter(self) -> Self::IntoIter {
-        ChunkIterator {
+        BytecodeParser {
             chunk: &self,
             pos: 0,
         }

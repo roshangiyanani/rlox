@@ -5,11 +5,14 @@ mod vm;
 
 use bytecode::core::{Chunk, Instruction};
 use dissembler::DissemblerPrinter;
+use log::Level;
 use value::Value;
 
 use crate::vm::VM;
 
 fn main() {
+    simple_logger::init_with_level(Level::Trace).expect("cannot initialize logger");
+
     let mut chunk = Chunk::new();
 
     chunk.add_instructions(&[
@@ -21,7 +24,7 @@ fn main() {
     DissemblerPrinter::dissemble(&chunk, "chunk");
 
     let vm = VM { chunk };
-    vm.interpret(true).expect("unable to interpret");
+    vm.interpret().expect("unable to interpret");
 
     std::process::exit(0);
 }

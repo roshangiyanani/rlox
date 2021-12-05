@@ -1,9 +1,6 @@
-use crate::{
-    bytecode::{
-        core::{Chunk, Instruction},
-        parser::BytecodeParseError,
-    },
-    dissembler::DissemblerPrinter,
+use crate::bytecode::{
+    core::{Chunk, Instruction},
+    parser::BytecodeParseError,
 };
 
 pub struct VM {
@@ -11,13 +8,16 @@ pub struct VM {
 }
 
 impl VM {
-    pub fn interpret(&self, debug: bool) -> Result<(), BytecodeParseError> {
-        let mut dissembler = debug.then(|| DissemblerPrinter::new());
-
+    pub fn interpret(&self) -> Result<(), BytecodeParseError> {
         for (metadata, parsed) in self.chunk.iter() {
-            if let Some(dissembler) = dissembler.as_mut() {
-                dissembler.print(metadata, parsed);
-            }
+            match parsed {
+                Ok(instruction) => {
+                    log::debug!("{:04} {:4} {:?}", metadata.pos, metadata.line, instruction)
+                }
+                Err(e) => {
+                    log::debug!("{:04} {:4} {:?}", metadata.pos, metadata.line, e)
+                }
+            };
 
             let instruction = parsed?;
             match instruction {

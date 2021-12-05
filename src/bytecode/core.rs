@@ -1,7 +1,10 @@
+use num_enum::{IntoPrimitive, TryFromPrimitive};
+
 use crate::value::Value;
 
 /// Bytecode instructions.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, IntoPrimitive, TryFromPrimitive)]
+#[non_exhaustive]
 #[repr(u8)]
 pub enum OpCode {
     /// Return from the current function.
@@ -17,25 +20,6 @@ pub enum Instruction {
     Return,
     Constant(Value),
     Negate,
-}
-
-impl TryFrom<u8> for OpCode {
-    type Error = ();
-
-    fn try_from(value: u8) -> Result<Self, ()> {
-        match value {
-            1 => Ok(OpCode::Return),
-            2 => Ok(OpCode::Constant),
-            3 => Ok(OpCode::Negate),
-            _ => Err(()),
-        }
-    }
-}
-
-impl From<OpCode> for u8 {
-    fn from(value: OpCode) -> Self {
-        value as u8
-    }
 }
 
 #[derive(Debug, PartialEq)]

@@ -6,13 +6,17 @@ use crate::value::Value;
 pub enum OpCode {
     /// Return from the current function.
     Return = 1,
+    /// Load a constant, whose index is the next byte.
     Constant = 2,
+    /// Negate the value at the top of the stack.
+    Negate = 3,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Instruction {
     Return,
     Constant(Value),
+    Negate,
 }
 
 impl TryFrom<u8> for OpCode {
@@ -22,6 +26,7 @@ impl TryFrom<u8> for OpCode {
         match value {
             1 => Ok(OpCode::Return),
             2 => Ok(OpCode::Constant),
+            3 => Ok(OpCode::Negate),
             _ => Err(()),
         }
     }
@@ -57,6 +62,7 @@ impl Chunk {
                 self.add_op(OpCode::Constant, line);
                 self.add_raw(constant_id, line);
             }
+            Instruction::Negate => self.add_op(OpCode::Negate, line),
         }
     }
 

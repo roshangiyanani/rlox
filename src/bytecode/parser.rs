@@ -78,6 +78,7 @@ impl<'a> Iterator for BytecodeParser<'a> {
                 Ok(op) => match op {
                     OpCode::Return => Ok(Instruction::Return),
                     OpCode::Constant => self.read_constant(),
+                    OpCode::Negate => Ok(Instruction::Negate),
                 },
                 Err(_) => Err(BytecodeParseError::UnknownInstruction(code)),
             };

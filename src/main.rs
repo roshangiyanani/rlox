@@ -16,15 +16,13 @@ fn main() {
     let mut chunk = Chunk::new();
 
     chunk.add_instructions(&[
-        (1, Instruction::Constant(Value(1.2))),
-        (2, Instruction::Constant(Value(3.1415))),
+        (1, Instruction::Constant(Value(3.1415))),
+        (1, Instruction::Negate),
         (2, Instruction::Return),
-        (3, Instruction::Constant(Value(f64::NAN))),
     ]);
     DissemblerPrinter::dissemble(&chunk, "chunk");
 
-    let vm = VM { chunk };
-    vm.interpret().expect("unable to interpret");
+    VM::interpret_chunk(chunk).expect("unable to interpret");
 
     std::process::exit(0);
 }

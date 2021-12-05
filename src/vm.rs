@@ -51,6 +51,16 @@ impl VM {
                 self.stack.push(-value);
                 Ok(ControlFlow::Continue)
             }
+            Instruction::BinaryOp(op) => {
+                let b = self.stack_pop()?;
+                let a = self.stack_pop()?;
+                let result = Value::apply_binary_op(a, b, op);
+
+                log::trace!("{a} {op} {b} = {r}", a = a, op = op, b = b, r = result);
+
+                self.stack.push(result);
+                Ok(ControlFlow::Continue)
+            }
         }
     }
 
@@ -61,10 +71,10 @@ impl VM {
             log::trace!("stack: {:?}", vm.stack);
             match parsed {
                 Ok(instruction) => {
-                    log::debug!("{:04} {:4} {:?}", metadata.pos, metadata.line, instruction)
+                    log::trace!("{:04} {:4} {:?}", metadata.pos, metadata.line, instruction)
                 }
                 Err(e) => {
-                    log::debug!("{:04} {:4} {:?}", metadata.pos, metadata.line, e)
+                    log::error!("{:04} {:4} {:?}", metadata.pos, metadata.line, e)
                 }
             };
 

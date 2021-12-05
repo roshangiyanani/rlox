@@ -3,6 +3,8 @@ use std::iter::FusedIterator;
 
 use crate::bytecode::core::{Chunk, Instruction, OpCode};
 
+use super::core::BinaryOp;
+
 pub struct InstructionMetadata {
     pub line: u32,
     pub pos: usize,
@@ -79,6 +81,10 @@ impl<'a> Iterator for BytecodeParser<'a> {
                     OpCode::Return => Ok(Instruction::Return),
                     OpCode::Constant => self.read_constant(),
                     OpCode::Negate => Ok(Instruction::Negate),
+                    OpCode::Add => Ok(Instruction::BinaryOp(BinaryOp::Add)),
+                    OpCode::Subtract => Ok(Instruction::BinaryOp(BinaryOp::Subtract)),
+                    OpCode::Multiply => Ok(Instruction::BinaryOp(BinaryOp::Multiply)),
+                    OpCode::Divide => Ok(Instruction::BinaryOp(BinaryOp::Divide)),
                 },
                 Err(_) => Err(BytecodeParseError::UnknownInstruction(code)),
             };

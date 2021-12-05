@@ -1,3 +1,5 @@
+use std::fmt::{Binary, Display};
+
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
 use crate::value::Value;
@@ -10,9 +12,37 @@ pub enum OpCode {
     /// Return from the current function.
     Return = 1,
     /// Load a constant, whose index is the next byte.
-    Constant = 2,
+    Constant,
     /// Negate the value at the top of the stack.
-    Negate = 3,
+    Negate,
+    /// Binary Op, applied to the two values at the top of the stack.
+    Add,
+    /// Binary Op, applied to the two values at the top of the stack.
+    Subtract,
+    /// Binary Op, applied to the two values at the top of the stack.
+    Multiply,
+    /// Binary Op, applied to the two values at the top of the stack.
+    Divide,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum BinaryOp {
+    Add,
+    Subtract,
+    Multiply,
+    Divide,
+}
+
+impl Display for BinaryOp {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let op_str = match self {
+            BinaryOp::Add => '+',
+            BinaryOp::Subtract => '-',
+            BinaryOp::Multiply => '*',
+            BinaryOp::Divide => '/',
+        };
+        write!(f, "{}", op_str)
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -20,6 +50,7 @@ pub enum Instruction {
     Return,
     Constant(Value),
     Negate,
+    BinaryOp(BinaryOp),
 }
 
 #[derive(Debug, PartialEq)]
@@ -47,6 +78,10 @@ impl Chunk {
                 self.add_raw(constant_id, line);
             }
             Instruction::Negate => self.add_op(OpCode::Negate, line),
+            Instruction::BinaryOp(BinaryOp::Add) => self.add_op(OpCode::Add, line),
+            Instruction::BinaryOp(BinaryOp::Subtract) => self.add_op(OpCode::Subtract, line),
+            Instruction::BinaryOp(BinaryOp::Multiply) => self.add_op(OpCode::Multiply, line),
+            Instruction::BinaryOp(BinaryOp::Divide) => self.add_op(OpCode::Divide, line),
         }
     }
 

@@ -71,7 +71,7 @@ impl VM {
             log::trace!("stack: {:?}", vm.stack);
             match parsed {
                 Ok(instruction) => {
-                    log::trace!("{:04} {:4} {:?}", metadata.pos, metadata.line, instruction)
+                    log::debug!("{:04} {:4} {:?}", metadata.pos, metadata.line, instruction)
                 }
                 Err(e) => {
                     log::error!("{:04} {:4} {:?}", metadata.pos, metadata.line, e)

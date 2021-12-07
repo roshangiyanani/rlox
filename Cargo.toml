@@ -9,5 +9,6 @@ edition = "2021"
 log = "0.4.14"
 num_enum = "0.5.4"
 simple_logger = "1.15.0"
+structopt = "0.3.25"
 
 [features]

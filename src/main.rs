@@ -16,30 +16,55 @@ struct Rlox {
     path: Option<std::path::PathBuf>,
 }
 
-fn main() {
+fn main() -> ! {
     simple_logger::init_with_env().expect("cannot initialize logger");
 
     let args = Rlox::from_args();
-    if let Some(path) = args.path {
-        run_file(&path);
-    } else {
-        repl();
-    }
+    let result = match args.path {
+        Some(path) => run_file(&path),
+        None => repl(),
+    };
 
-    std::process::exit(0);
+    match result {
+        Ok(_) => std::process::exit(0),
+        Err(error) => {
+            log::error!("{}", error);
+            std::process::exit(1)
+        }
+    }
 }
 
-fn repl() {
+fn repl() -> Result<(), std::io::Error> {
     log::debug!("launching repl");
 
+    let mut line = String::new();
+    let stdin = std::io::stdin();
+    loop {
+        line.clear();
+        if stdin.read_line(&mut line)? == 0 {
+            log::debug!("received EOF");
+            break;
+        }
+
+        // strip newline
+        let line = line.trim_end();
+        log::debug!("input: \"{}\"", &line[..line.len() - 1]);
+
+        // todo: interpret
+    }
+
     log::debug!("terminating repl");
+    Ok(())
 }
 
-fn run_file<P>(path: &P)
+fn run_file<P>(path: &P) -> Result<(), std::io::Error>
 where
     P: AsRef<Path> + std::fmt::Debug,
 {
     log::debug!("running file at {:?}", path);
+    let file = std::fs::read_to_string(path)?;
+    log::debug!("read file:\n{}", file);
 
     log::debug!("finished running file");
+    Ok(())
 }

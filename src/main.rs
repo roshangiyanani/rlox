@@ -2,7 +2,10 @@ use std::path::Path;
 
 use structopt::StructOpt;
 
+use crate::compiler::scanner::Scanner;
+
 mod bytecode;
+mod compiler;
 mod dissembler;
 mod value;
 mod vm;
@@ -62,8 +65,15 @@ where
     P: AsRef<Path> + std::fmt::Debug,
 {
     log::debug!("running file at {:?}", path);
-    let file = std::fs::read_to_string(path)?;
-    log::debug!("read file:\n{}", file);
+    let source = std::fs::read_to_string(path)?;
+    log::debug!("read file:\n{}", source);
+    let mut scanner = Scanner::new(source);
+    for (loc, parsed) in &mut scanner {
+        match parsed {
+            Err(e) => log::error!("scanner error at {:}: {:?}", loc, e),
+            Ok(token) => log::debug!("{:}: {:?}", loc, token),
+        }
+    }
 
     log::debug!("finished running file");
     Ok(())

@@ -1,9 +1,9 @@
 use std::fmt::Display;
 use std::iter::FusedIterator;
 
-use crate::bytecode::core::{Chunk, Instruction, OpCode};
+use thiserror::Error;
 
-use super::core::BinaryOp;
+use crate::bytecode::core::{BinaryOp, Chunk, Instruction, OpCode};
 
 pub struct InstructionMetadata {
     pub line: u32,
@@ -16,31 +16,14 @@ impl InstructionMetadata {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Error)]
 pub enum BytecodeParseError {
+    #[error("unknown instruction code ({0})")]
     UnknownInstruction(u8),
+    #[error("invalid constant index ({0})")]
     InvalidConstantIndex(u8),
+    #[error("unexpected end of bytecode when parsing {0:?} operands")]
     UnexpectedEndOfBytecode(OpCode),
-}
-
-impl Display for BytecodeParseError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            BytecodeParseError::UnknownInstruction(code) => {
-                write!(f, "Unknown ({})", code)
-            }
-            BytecodeParseError::InvalidConstantIndex(index) => {
-                write!(f, "{:?} (Invalid Index: {})", OpCode::Constant, index)
-            }
-            BytecodeParseError::UnexpectedEndOfBytecode(op) => {
-                write!(
-                    f,
-                    "Unexpected End of Bytecode when parsing arguments for {:?}",
-                    op
-                )
-            }
-        }
-    }
 }
 
 pub struct BytecodeParser<'a> {

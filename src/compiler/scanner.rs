@@ -1,4 +1,5 @@
 use std::fmt::Display;
+use thiserror::Error;
 
 pub struct Scanner {
     source: String,
@@ -17,7 +18,7 @@ impl Scanner {
 }
 
 impl<'a> Iterator for &'a mut Scanner {
-    type Item = (Location, Result<Token<'a>, ScannerError>);
+    type Item = (Location, Result<Token<'a>, anyhow::Error>);
 
     fn next(&mut self) -> Option<Self::Item> {
         let loc = Location { line: self.line };
@@ -25,14 +26,16 @@ impl<'a> Iterator for &'a mut Scanner {
             None
         } else {
             self.position += 1;
-            Some((loc, Err(ScannerError::UnexpectedCharacter)))
+            Some((loc, Err(ScannerError::UnexpectedCharacter.into())))
         }
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Error)]
 pub enum ScannerError {
+    #[error("unterminated string")]
     UnterminatedString,
+    #[error("unexpected character")]
     UnexpectedCharacter,
 }
 

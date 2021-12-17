@@ -1,5 +1,6 @@
 use std::path::Path;
 
+use anyhow::{Context, Error};
 use structopt::StructOpt;
 
 use crate::compiler::scanner::Scanner;
@@ -19,7 +20,7 @@ struct Rlox {
     path: Option<std::path::PathBuf>,
 }
 
-fn main() -> ! {
+fn main() {
     simple_logger::init_with_env().expect("cannot initialize logger");
 
     let args = Rlox::from_args();
@@ -31,48 +32,54 @@ fn main() -> ! {
     match result {
         Ok(_) => std::process::exit(0),
         Err(error) => {
-            log::error!("{}", error);
+            log::error!("{:?}", error);
             std::process::exit(1)
         }
     }
 }
 
-fn repl() -> Result<(), std::io::Error> {
+fn repl() -> Result<(), Error> {
     log::debug!("launching repl");
 
     let mut line = String::new();
     let stdin = std::io::stdin();
     loop {
-        line.clear();
-        if stdin.read_line(&mut line)? == 0 {
+        let read_size = stdin
+            .read_line(&mut line)
+            .with_context(|| "unable to read input")?;
+        if read_size == 0 {
             log::debug!("received EOF");
             break;
         }
 
         // strip newline
-        let line = line.trim_end();
-        log::debug!("input: \"{}\"", &line[..line.len() - 1]);
+        let trimmed_line = line.trim_end();
+        log::trace!("input: \"{}\"", trimmed_line);
 
         // todo: interpret
+        line.clear();
     }
 
     log::debug!("terminating repl");
     Ok(())
 }
 
-fn run_file<P>(path: &P) -> Result<(), std::io::Error>
+fn run_file<P>(path: &P) -> Result<(), Error>
 where
     P: AsRef<Path> + std::fmt::Debug,
 {
-    log::debug!("running file at {:?}", path);
-    let source = std::fs::read_to_string(path)?;
-    log::debug!("read file:\n{}", source);
+    let source = std::fs::read_to_string(path)
+        .with_context(|| format!("unable to read lox file at {:?}", path))?;
+    if log::log_enabled!(log::Level::Trace) {
+        log::trace!("read file at {:?}:\n{}", path, source);
+    } else {
+        log::info!("read file at {:?}", path)
+    }
+
     let mut scanner = Scanner::new(source);
     for (loc, parsed) in &mut scanner {
-        match parsed {
-            Err(e) => log::error!("scanner error at {:}: {:?}", loc, e),
-            Ok(token) => log::debug!("{:}: {:?}", loc, token),
-        }
+        let token = parsed.with_context(|| format!("scanner error at {}", loc))?;
+        log::trace!("{:}: {:?}", loc, token);
     }
 
     log::debug!("finished running file");

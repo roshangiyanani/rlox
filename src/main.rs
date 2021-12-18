@@ -76,7 +76,7 @@ where
         log::info!("read file at {:?}", path)
     }
 
-    let mut scanner = Scanner::new(source);
+    let mut scanner = Scanner::new(&source);
     for (loc, parsed) in &mut scanner {
         let token = parsed.with_context(|| format!("scanner error at {}", loc))?;
         log::trace!("{:}: {:?}", loc, token);

@@ -1,32 +1,45 @@
-use std::fmt::Display;
+use std::{fmt::Display, str::Chars};
 use thiserror::Error;
 
-pub struct Scanner {
-    source: String,
-    position: usize,
+pub struct Scanner<'a> {
+    source: Chars<'a>,
     line: usize,
 }
 
-impl Scanner {
-    pub fn new(source: String) -> Scanner {
+impl<'a> Scanner<'a> {
+    pub fn new(source: &'a str) -> Scanner<'a> {
         Scanner {
-            source,
-            position: 0,
+            source: source.chars(),
             line: 1,
         }
     }
 }
 
-impl<'a> Iterator for &'a mut Scanner {
+impl<'a> Iterator for &'a mut Scanner<'a> {
     type Item = (Location, Result<Token<'a>, anyhow::Error>);
 
     fn next(&mut self) -> Option<Self::Item> {
+        use Token::*;
         let loc = Location { line: self.line };
-        if self.position >= self.source.len() {
-            None
+
+        if let Some(c) = self.source.next() {
+            let token = match c {
+                '(' => Ok(LeftParen),
+                ')' => Ok(RightParen),
+                '{' => Ok(LeftBrace),
+                '}' => Ok(RightBrace),
+                ',' => Ok(Comma),
+                '.' => Ok(Dot),
+                '-' => Ok(Minus),
+                '+' => Ok(Plus),
+                ';' => Ok(Semicolon),
+                '/' => Ok(Semicolon),
+                '*' => Ok(Star),
+                c => Err(ScannerError::UnexpectedCharacter(c).into()),
+            };
+            Some((loc, token))
         } else {
-            self.position += 1;
-            Some((loc, Err(ScannerError::UnexpectedCharacter.into())))
+            None
         }
     }
 }
@@ -35,8 +48,8 @@ impl<'a> Iterator for &'a mut Scanner {
 pub enum ScannerError {
     #[error("unterminated string")]
     UnterminatedString,
-    #[error("unexpected character")]
-    UnexpectedCharacter,
+    #[error("unexpected character '{0}'")]
+    UnexpectedCharacter(char),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]

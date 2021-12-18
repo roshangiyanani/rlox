@@ -1,17 +1,35 @@
+use peekmore::{PeekMore, PeekMoreIterator};
 use std::{fmt::Display, str::Chars};
 use thiserror::Error;
 
 pub struct Scanner<'a> {
-    source: Chars<'a>,
+    source: PeekMoreIterator<Chars<'a>>,
     line: usize,
 }
 
 impl<'a> Scanner<'a> {
     pub fn new(source: &'a str) -> Scanner<'a> {
         Scanner {
-            source: source.chars(),
+            source: source.chars().peekmore(),
             line: 1,
         }
+    }
+
+    fn skip_lines(&mut self) {
+        let mut count = 0;
+        while Some(&'\n') == self.source.peek() {
+            count += 1;
+            self.source.next();
+        }
+
+        if count > 0 {
+            self.line += count;
+            log::trace!("consumed {} new line(s)", count);
+        }
+    }
+
+    fn current_loc(&self) -> Location {
+        Location { line: self.line }
     }
 }
 
@@ -20,7 +38,9 @@ impl<'a> Iterator for &'a mut Scanner<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         use Token::*;
-        let loc = Location { line: self.line };
+
+        self.skip_lines();
+        let loc = self.current_loc();
 
         if let Some(c) = self.source.next() {
             let token = match c {

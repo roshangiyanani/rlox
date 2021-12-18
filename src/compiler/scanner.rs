@@ -15,16 +15,23 @@ impl<'a> Scanner<'a> {
         }
     }
 
-    fn skip_lines(&mut self) {
-        let mut count = 0;
-        while Some(&'\n') == self.source.peek() {
-            count += 1;
-            self.source.next();
+    fn skip_whitespace(&mut self) {
+        let mut new_lines = 0;
+
+        loop {
+            if let Some(&c) = self.source.peek() {
+                if c == '\n' {
+                    new_lines += 1;
+                }
+                self.source.next();
+            } else {
+                break;
+            }
         }
 
-        if count > 0 {
-            self.line += count;
-            log::trace!("consumed {} new line(s)", count);
+        if new_lines > 0 {
+            self.line += new_lines;
+            log::trace!("consumed {} new line(s)", new_lines);
         }
     }
 
@@ -33,13 +40,13 @@ impl<'a> Scanner<'a> {
     }
 }
 
-impl<'a> Iterator for &'a mut Scanner<'a> {
+impl<'a: 'b, 'b> Iterator for &'b mut Scanner<'a> {
     type Item = (Location, Result<Token<'a>, anyhow::Error>);
 
     fn next(&mut self) -> Option<Self::Item> {
         use Token::*;
 
-        self.skip_lines();
+        self.skip_whitespace();
         let loc = self.current_loc();
 
         if let Some(c) = self.source.next() {
@@ -127,4 +134,26 @@ pub enum Token<'a> {
     True,
     Var,
     While,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn whitespace() {
+        let input = "\r(\n\t)\n\n/{ /}";
+        let tokens: Vec<_> = Scanner::new(&input)
+            .map(|(loc, parsed)| (loc, parsed.unwrap()))
+            .collect();
+
+        assert_eq!(
+            tokens,
+            vec![
+                (Location { line: 1 }, Token::LeftParen),
+                (Location { line: 2 }, Token::RightParen),
+                (Location { line: 4 }, Token::LeftBrace),
+                (Location { line: 4 }, Token::RightBrace),
+            ]
+        );
+    }
 }

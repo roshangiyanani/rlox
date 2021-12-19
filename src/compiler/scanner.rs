@@ -18,11 +18,12 @@ impl<'a> Scanner<'a> {
     fn skip_whitespace(&mut self) {
         let mut new_lines = 0;
 
-        loop {
-            if let Some(&c) = self.source.peek() {
+        while let Some(&c) = self.source.peek() {
+            if c.is_whitespace() {
                 if c == '\n' {
                     new_lines += 1;
                 }
+
                 self.source.next();
             } else {
                 break;
@@ -140,8 +141,9 @@ pub enum Token<'a> {
 mod tests {
     use super::*;
 
+    #[test]
     fn whitespace() {
-        let input = "\r(\n\t)\n\n/{ /}";
+        let input = "\r(\n\t)\n\n{ }";
         let tokens: Vec<_> = Scanner::new(&input)
             .map(|(loc, parsed)| (loc, parsed.unwrap()))
             .collect();

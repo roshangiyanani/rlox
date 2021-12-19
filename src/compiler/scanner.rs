@@ -50,20 +50,33 @@ impl<'a: 'b, 'b> Iterator for &'b mut Scanner<'a> {
         self.skip_whitespace();
         let loc = self.current_loc();
 
-        if let Some(c) = self.source.next() {
-            let token = match c {
-                '(' => Ok(LeftParen),
-                ')' => Ok(RightParen),
-                '{' => Ok(LeftBrace),
-                '}' => Ok(RightBrace),
-                ',' => Ok(Comma),
-                '.' => Ok(Dot),
-                '-' => Ok(Minus),
-                '+' => Ok(Plus),
-                ';' => Ok(Semicolon),
-                '/' => Ok(Semicolon),
-                '*' => Ok(Star),
-                c => Err(ScannerError::UnexpectedCharacter(c).into()),
+        if let Some(c1) = self.source.next() {
+            let c2 = self.source.peek().copied();
+            let token = match (c1, c2) {
+                // single character tokens
+                ('(', _) => Ok(LeftParen),
+                (')', _) => Ok(RightParen),
+                ('{', _) => Ok(LeftBrace),
+                ('}', _) => Ok(RightBrace),
+                (',', _) => Ok(Comma),
+                ('.', _) => Ok(Dot),
+                ('-', _) => Ok(Minus),
+                ('+', _) => Ok(Plus),
+                (';', _) => Ok(Semicolon),
+                ('*', _) => Ok(Star),
+                // one or two character tokens
+                ('!', Some('=')) => Ok(BangEqual),
+                ('!', _) => Ok(Bang),
+                ('=', Some('=')) => Ok(EqualEqual),
+                ('=', _) => Ok(Equal),
+                ('<', Some('=')) => Ok(LessEqual),
+                ('<', _) => Ok(Less),
+                ('>', Some('=')) => Ok(GreaterEqual),
+                ('>', _) => Ok(Greater),
+                // todo: get string slice
+                ('/', Some('/')) => Ok(Comment("")),
+                ('/', _) => Ok(Slash),
+                (c, _) => Err(ScannerError::UnexpectedCharacter(c).into()),
             };
             Some((loc, token))
         } else {
@@ -103,7 +116,6 @@ pub enum Token<'a> {
     Minus,
     Plus,
     Semicolon,
-    Slash,
     Star,
     // one or two character tokens
     Bang,
@@ -114,6 +126,8 @@ pub enum Token<'a> {
     GreaterEqual,
     Less,
     LessEqual,
+    Slash,
+    Comment(&'a str),
     // literals
     Identifier(&'a str),
     String(&'a str),

@@ -39,49 +39,74 @@ impl<'a> Scanner<'a> {
     fn current_loc(&self) -> Location {
         Location { line: self.line }
     }
+
+
+    fn match_single_or_double_character_token(&mut self, c1: char) -> Option<Token<'a>> {
+        use Token::*;
+        let c2 = self.source.peek().copied();
+        if let Some(token) = match (c1, c2) {
+            ('!', Some('=')) => Some(BangEqual),
+            ('=', Some('=')) => Some(EqualEqual),
+            ('<', Some('=')) => Some(LessEqual),
+            ('>', Some('=')) => Some(GreaterEqual),
+            // todo: get string slice
+            ('/', Some('/')) => Some(Comment("")),
+            _ => None,
+        } {
+            self.source.next();
+            Some(token)
+        } else {
+            match c1 {
+                '!' => Some(Bang),
+                '=' => Some(Equal),
+                '<' => Some(Less),
+                '>' => Some(Greater),
+                '/' => Some(Slash),
+                _ => None,
+            }
+        }
+    }
 }
+
 
 impl<'a: 'b, 'b> Iterator for &'b mut Scanner<'a> {
     type Item = (Location, Result<Token<'a>, anyhow::Error>);
 
     fn next(&mut self) -> Option<Self::Item> {
-        use Token::*;
-
         self.skip_whitespace();
         let loc = self.current_loc();
 
         if let Some(c1) = self.source.next() {
-            let c2 = self.source.peek().copied();
-            let token = match (c1, c2) {
-                // single character tokens
-                ('(', _) => Ok(LeftParen),
-                (')', _) => Ok(RightParen),
-                ('{', _) => Ok(LeftBrace),
-                ('}', _) => Ok(RightBrace),
-                (',', _) => Ok(Comma),
-                ('.', _) => Ok(Dot),
-                ('-', _) => Ok(Minus),
-                ('+', _) => Ok(Plus),
-                (';', _) => Ok(Semicolon),
-                ('*', _) => Ok(Star),
-                // one or two character tokens
-                ('!', Some('=')) => Ok(BangEqual),
-                ('!', _) => Ok(Bang),
-                ('=', Some('=')) => Ok(EqualEqual),
-                ('=', _) => Ok(Equal),
-                ('<', Some('=')) => Ok(LessEqual),
-                ('<', _) => Ok(Less),
-                ('>', Some('=')) => Ok(GreaterEqual),
-                ('>', _) => Ok(Greater),
-                // todo: get string slice
-                ('/', Some('/')) => Ok(Comment("")),
-                ('/', _) => Ok(Slash),
-                (c, _) => Err(ScannerError::UnexpectedCharacter(c).into()),
+            let parsed = if let Some(token) = match_single_character_token(c1) {
+                Ok(token)
+            } else if let Some(token) = self.match_single_or_double_character_token(c1) {
+                Ok(token)
+            } else {
+                Err(ScannerError::UnexpectedCharacter(c1).into())
             };
-            Some((loc, token))
+            Some((loc, parsed))
         } else {
             None
         }
+    }
+}
+
+fn match_single_character_token(c1: char) -> Option<Token<'static>> {
+    use Token::*;
+
+    match c1 {
+        // single character tokens
+        '(' => Some(LeftParen),
+        ')' => Some(RightParen),
+        '{' => Some(LeftBrace),
+        '}' => Some(RightBrace),
+        ',' => Some(Comma),
+        '.' => Some(Dot),
+        '-' => Some(Minus),
+        '+' => Some(Plus),
+        ';' => Some(Semicolon),
+        '*' => Some(Star),
+        _ => None,
     }
 }
 

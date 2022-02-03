@@ -155,6 +155,34 @@ pub enum Token<'a> {
 mod tests {
     use super::*;
 
+    use test_case::test_case;
+
+    fn scan(input: &str) -> Vec<Token> {
+        Scanner::new(&input)
+            .map(|(_, parsed)| parsed.unwrap())
+            .collect()
+    }
+
+    #[test_case("!=", Token::BangEqual)]
+    #[test_case("==", Token::EqualEqual)]
+    #[test_case(">=", Token::GreaterEqual)]
+    #[test_case("<=", Token::LessEqual)]
+    #[test_case("// comment", Token::Comment("comment"))]
+    fn one_or_two_char_token_as_two_char_token(input: &str, t: Token) {
+        let tokens = scan(input);
+        assert_eq!(tokens, vec![ t, ])
+    }
+
+    #[test_case("! =", Token::Bang, Token::Equal)]
+    #[test_case("= =", Token::Equal, Token::Equal)]
+    #[test_case("> =", Token::Greater, Token::Equal)]
+    #[test_case("< =", Token::Less, Token::Equal)]
+    #[test_case("/ /", Token::Slash, Token::Slash)]
+    fn one_or_two_char_token_as_one_char_tokens(input: &str, t1: Token, t2: Token) {
+        let tokens = scan(input);
+        assert_eq!(tokens, vec![t1, t2]);
+    }
+
     #[test]
     fn whitespace() {
         let input = "\r(\n\t)\n\n{ }";

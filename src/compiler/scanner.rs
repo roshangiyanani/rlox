@@ -40,21 +40,25 @@ impl<'a> Scanner<'a> {
         Location { line: self.line }
     }
 
-
     fn match_single_or_double_character_token(&mut self, c1: char) -> Option<Token<'a>> {
         use Token::*;
+
         let c2 = self.source.peek().copied();
         if let Some(token) = match (c1, c2) {
             ('!', Some('=')) => Some(BangEqual),
             ('=', Some('=')) => Some(EqualEqual),
             ('<', Some('=')) => Some(LessEqual),
             ('>', Some('=')) => Some(GreaterEqual),
-            // todo: get string slice
-            ('/', Some('/')) => Some(Comment("")),
             _ => None,
         } {
             self.source.next();
             Some(token)
+        } else if ('/', Some('/')) == (c1, c2) {
+            self.source.next();
+            // comment goes till end of line
+            while self.source.next().map_or(false, |c| c != '\n') {}
+            // todo: return comment string
+            Some(Comment(""))
         } else {
             match c1 {
                 '!' => Some(Bang),
@@ -67,7 +71,6 @@ impl<'a> Scanner<'a> {
         }
     }
 }
-
 
 impl<'a: 'b, 'b> Iterator for &'b mut Scanner<'a> {
     type Item = (Location, Result<Token<'a>, anyhow::Error>);
@@ -195,7 +198,7 @@ mod tests {
     #[test_case("// comment", Token::Comment("comment"))]
     fn one_or_two_char_token_as_two_char_token(input: &str, t: Token) {
         let tokens = scan(input);
-        assert_eq!(tokens, vec![ t, ])
+        assert_eq!(tokens, vec![t,])
     }
 
     #[test_case("! =", Token::Bang, Token::Equal)]
@@ -206,6 +209,21 @@ mod tests {
     fn one_or_two_char_token_as_one_char_tokens(input: &str, t1: Token, t2: Token) {
         let tokens = scan(input);
         assert_eq!(tokens, vec![t1, t2]);
+    }
+
+    #[test]
+    fn comment_parses_line() {
+        let input = "//\n+";
+        let tokens = scan(input);
+        assert_eq!(tokens, vec![Token::Comment(""), Token::Plus]);
+
+        let input = "//\n+";
+        let tokens = scan(input);
+        assert_eq!(tokens, vec![Token::Comment(""), Token::Plus]);
+
+        let input = "//";
+        let tokens = scan(input);
+        assert_eq!(tokens, vec![Token::Comment("")]);
     }
 
     #[test]

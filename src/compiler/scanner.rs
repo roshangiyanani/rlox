@@ -16,6 +16,45 @@ impl<'a> Scanner<'a> {
         }
     }
 
+    fn match_single_character_token(&mut self, c: char) -> Option<Result<Token<'a>, ScannerError>> {
+        use Token::*;
+
+        match c {
+            // single character tokens
+            '(' => Some(Ok(LeftParen)),
+            ')' => Some(Ok(RightParen)),
+            '{' => Some(Ok(LeftBrace)),
+            '}' => Some(Ok(RightBrace)),
+            ',' => Some(Ok(Comma)),
+            '.' => Some(Ok(Dot)),
+            '-' => Some(Ok(Minus)),
+            '+' => Some(Ok(Plus)),
+            ';' => Some(Ok(Semicolon)),
+            '*' => Some(Ok(Star)),
+            '"' => Some(self.complete_quote()),
+            _ => None,
+        }
+    }
+
+    fn complete_quote(&mut self) -> Result<Token<'a>, ScannerError> {
+        let raw = self.iter.as_str();
+        let mut length = 0;
+        loop {
+            let c = self.iter.next();
+            if c == Some('"') {
+                return Ok(Token::String(raw.get(0..length).unwrap()));
+            } else if let Some(c) = c {
+                length += 1;
+                if c == '\n' {
+                    self.line += 1;
+                }
+            } else {
+                // c == None
+                return Err(ScannerError::UnterminatedString);
+            }
+        }
+    }
+
     fn match_single_or_double_character_token(&mut self, c1: char) -> Option<Token<'a>> {
         use Token::*;
 
@@ -39,8 +78,7 @@ impl<'a> Scanner<'a> {
                 if c == '\n' {
                     self.line += 1;
                     break;
-                }
-                else {
+                } else {
                     length += 1;
                 }
             }
@@ -61,7 +99,7 @@ impl<'a> Scanner<'a> {
 }
 
 impl<'a: 'b, 'b> Iterator for &'b mut Scanner<'a> {
-    type Item = (Location, Result<Token<'a>, anyhow::Error>);
+    type Item = (Location, Result<Token<'a>, ScannerError>);
 
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(c1) = self.iter.next() {
@@ -69,40 +107,20 @@ impl<'a: 'b, 'b> Iterator for &'b mut Scanner<'a> {
                 if c1 == '\n' {
                     self.line += 1;
                 }
-            }
-            else {
+            } else {
                 let loc = Location { line: self.line }; // pull location now since matching can advance it
-                let parsed = if let Some(token) = match_single_character_token(c1) {
-                    Ok(token)
+                let parsed = if let Some(parsed) = self.match_single_character_token(c1) {
+                    parsed
                 } else if let Some(token) = self.match_single_or_double_character_token(c1) {
                     Ok(token)
                 } else {
-                    Err(ScannerError::UnexpectedCharacter(c1).into())
+                    Err(ScannerError::UnexpectedCharacter(c1))
                 };
                 return Some((loc, parsed));
             }
-        };
+        }
 
         None // EOF
-    }
-}
-
-fn match_single_character_token(c1: char) -> Option<Token<'static>> {
-    use Token::*;
-
-    match c1 {
-        // single character tokens
-        '(' => Some(LeftParen),
-        ')' => Some(RightParen),
-        '{' => Some(LeftBrace),
-        '}' => Some(RightBrace),
-        ',' => Some(Comma),
-        '.' => Some(Dot),
-        '-' => Some(Minus),
-        '+' => Some(Plus),
-        ';' => Some(Semicolon),
-        '*' => Some(Star),
-        _ => None,
     }
 }
 
@@ -182,6 +200,28 @@ mod tests {
         Scanner::new(&input)
             .map(|(_, parsed)| parsed.unwrap())
             .collect()
+    }
+
+    #[test_case("(", Token::LeftParen)]
+    #[test_case(")", Token::RightParen)]
+    #[test_case(",", Token::Comma)]
+    #[test_case(".", Token::Dot)]
+    #[test_case("-", Token::Minus)]
+    #[test_case("+", Token::Plus)]
+    #[test_case(";", Token::Semicolon)]
+    #[test_case("*", Token::Star)]
+    #[test_case("\"test\"", Token::String("test"))]
+    #[test_case("\"\"", Token::String(""); "empty string")]
+    #[test_case("\"te\nst\"", Token::String("te\nst"); "newline string")]
+    fn single_character_token(input: &str, t: Token) {
+        let tokens = scan(input);
+        assert_eq!(tokens, vec![t,])
+    }
+
+    #[test]
+    fn unterminated_string() {
+        let tokens: Vec<_> = Scanner::new("\"test").map(|(_, parsed)| parsed).collect();
+        assert_eq!(tokens, vec![Err(ScannerError::UnterminatedString)])
     }
 
     #[test_case("!=", Token::BangEqual)]

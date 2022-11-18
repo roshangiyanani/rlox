@@ -16,31 +16,6 @@ impl<'a> Scanner<'a> {
         }
     }
 
-    fn skip_whitespace(&mut self) {
-        let mut new_lines = 0;
-
-        let mut peek = self.iter.clone();
-        while let Some(c) = peek.next() {
-            if c.is_whitespace() {
-                if c == '\n' {
-                    new_lines += 1;
-                }
-                self.iter.next();
-            } else {
-                break;
-            }
-        }
-
-        if new_lines > 0 {
-            self.line += new_lines;
-            log::trace!("consumed {} new line(s)", new_lines);
-        }
-    }
-
-    fn current_loc(&self) -> Location {
-        Location { line: self.line }
-    }
-
     fn match_single_or_double_character_token(&mut self, c1: char) -> Option<Token<'a>> {
         use Token::*;
 
@@ -54,13 +29,15 @@ impl<'a> Scanner<'a> {
         } {
             self.iter.next();
             Some(token)
-        } else if ('/', Some('/')) == (c1, c2) {
+        } else if (c1, c2) == ('/', Some('/')) {
             self.iter.next();
+
             // comment goes till end of line
             let raw = self.iter.as_str();
             let mut length = 0;
             while let Some(c) = self.iter.next() {
                 if c == '\n' {
+                    self.line += 1;
                     break;
                 }
                 else {
@@ -68,6 +45,7 @@ impl<'a> Scanner<'a> {
                 }
             }
             let comment = raw.get(0..length).unwrap();
+
             Some(Comment(comment))
         } else {
             match c1 {
@@ -86,21 +64,26 @@ impl<'a: 'b, 'b> Iterator for &'b mut Scanner<'a> {
     type Item = (Location, Result<Token<'a>, anyhow::Error>);
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.skip_whitespace();
-        let loc = self.current_loc();
+        while let Some(c1) = self.iter.next() {
+            if c1.is_whitespace() {
+                if c1 == '\n' {
+                    self.line += 1;
+                }
+            }
+            else {
+                let loc = Location { line: self.line }; // pull location now since matching can advance it
+                let parsed = if let Some(token) = match_single_character_token(c1) {
+                    Ok(token)
+                } else if let Some(token) = self.match_single_or_double_character_token(c1) {
+                    Ok(token)
+                } else {
+                    Err(ScannerError::UnexpectedCharacter(c1).into())
+                };
+                return Some((loc, parsed));
+            }
+        };
 
-        if let Some(c1) = self.iter.next() {
-            let parsed = if let Some(token) = match_single_character_token(c1) {
-                Ok(token)
-            } else if let Some(token) = self.match_single_or_double_character_token(c1) {
-                Ok(token)
-            } else {
-                Err(ScannerError::UnexpectedCharacter(c1).into())
-            };
-            Some((loc, parsed))
-        } else {
-            None
-        }
+        None // EOF
     }
 }
 

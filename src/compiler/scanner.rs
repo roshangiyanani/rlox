@@ -1,16 +1,17 @@
-use peekmore::{PeekMore, PeekMoreIterator};
 use std::{fmt::Display, str::Chars};
 use thiserror::Error;
 
 pub struct Scanner<'a> {
-    source: PeekMoreIterator<Chars<'a>>,
+    // source: &'a str,
+    iter: Chars<'a>,
     line: usize,
 }
 
 impl<'a> Scanner<'a> {
     pub fn new(source: &'a str) -> Scanner<'a> {
         Scanner {
-            source: source.chars().peekmore(),
+            // source,
+            iter: source.chars(),
             line: 1,
         }
     }
@@ -18,13 +19,13 @@ impl<'a> Scanner<'a> {
     fn skip_whitespace(&mut self) {
         let mut new_lines = 0;
 
-        while let Some(&c) = self.source.peek() {
+        let mut peek = self.iter.clone();
+        while let Some(c) = peek.next() {
             if c.is_whitespace() {
                 if c == '\n' {
                     new_lines += 1;
                 }
-
-                self.source.next();
+                self.iter.next();
             } else {
                 break;
             }
@@ -43,7 +44,7 @@ impl<'a> Scanner<'a> {
     fn match_single_or_double_character_token(&mut self, c1: char) -> Option<Token<'a>> {
         use Token::*;
 
-        let c2 = self.source.peek().copied();
+        let c2 = self.iter.clone().next();
         if let Some(token) = match (c1, c2) {
             ('!', Some('=')) => Some(BangEqual),
             ('=', Some('=')) => Some(EqualEqual),
@@ -51,14 +52,23 @@ impl<'a> Scanner<'a> {
             ('>', Some('=')) => Some(GreaterEqual),
             _ => None,
         } {
-            self.source.next();
+            self.iter.next();
             Some(token)
         } else if ('/', Some('/')) == (c1, c2) {
-            self.source.next();
+            self.iter.next();
             // comment goes till end of line
-            while self.source.next().map_or(false, |c| c != '\n') {}
-            // todo: return comment string
-            Some(Comment(""))
+            let raw = self.iter.as_str();
+            let mut length = 0;
+            while let Some(c) = self.iter.next() {
+                if c == '\n' {
+                    break;
+                }
+                else {
+                    length += 1;
+                }
+            }
+            let comment = raw.get(0..length).unwrap();
+            Some(Comment(comment))
         } else {
             match c1 {
                 '!' => Some(Bang),
@@ -79,7 +89,7 @@ impl<'a: 'b, 'b> Iterator for &'b mut Scanner<'a> {
         self.skip_whitespace();
         let loc = self.current_loc();
 
-        if let Some(c1) = self.source.next() {
+        if let Some(c1) = self.iter.next() {
             let parsed = if let Some(token) = match_single_character_token(c1) {
                 Ok(token)
             } else if let Some(token) = self.match_single_or_double_character_token(c1) {
@@ -195,7 +205,12 @@ mod tests {
     #[test_case("==", Token::EqualEqual)]
     #[test_case(">=", Token::GreaterEqual)]
     #[test_case("<=", Token::LessEqual)]
-    #[test_case("// comment", Token::Comment("comment"))]
+    #[test_case("// comment", Token::Comment(" comment"))]
+    #[test_case("// comment\n", Token::Comment(" comment"); "newline")]
+    #[test_case("//", Token::Comment(""); "empty")]
+    #[test_case("//\n", Token::Comment(""); "empty newline")]
+    #[test_case("// ", Token::Comment(" "); "single whitespace")]
+    #[test_case("// \n", Token::Comment(" "); "single whitespace newline")]
     fn one_or_two_char_token_as_two_char_token(input: &str, t: Token) {
         let tokens = scan(input);
         assert_eq!(tokens, vec![t,])

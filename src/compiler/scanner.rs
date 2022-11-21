@@ -15,85 +15,24 @@ impl<'a> Scanner<'a> {
             line: 1,
         }
     }
+}
 
-    fn match_single_character_token(&mut self, c: char) -> Option<Result<Token<'a>, ScannerError>> {
-        use Token::*;
-
-        match c {
-            // single character tokens
-            '(' => Some(Ok(LeftParen)),
-            ')' => Some(Ok(RightParen)),
-            '{' => Some(Ok(LeftBrace)),
-            '}' => Some(Ok(RightBrace)),
-            ',' => Some(Ok(Comma)),
-            '.' => Some(Ok(Dot)),
-            '-' => Some(Ok(Minus)),
-            '+' => Some(Ok(Plus)),
-            ';' => Some(Ok(Semicolon)),
-            '*' => Some(Ok(Star)),
-            '"' => Some(self.complete_quote()),
-            _ => None,
-        }
-    }
-
-    fn complete_quote(&mut self) -> Result<Token<'a>, ScannerError> {
-        let raw = self.iter.as_str();
-        let mut length = 0;
-        loop {
-            let c = self.iter.next();
-            if c == Some('"') {
-                return Ok(Token::String(raw.get(0..length).unwrap()));
-            } else if let Some(c) = c {
-                length += 1;
-                if c == '\n' {
-                    self.line += 1;
-                }
-            } else {
-                // c == None
-                return Err(ScannerError::UnterminatedString);
+fn complete_quote<'a>(iter: &mut Chars<'a>, line: &mut usize) -> Result<Token<'a>, ScannerError> {
+    let raw = iter.as_str();
+    let mut length: usize = 0;
+    loop {
+        let c = iter.next();
+        if c == Some('"') {
+            let token = Token::String(raw.get(0..length).unwrap());
+            return Ok(token);
+        } else if let Some(c) = c {
+            length += 1;
+            if c == '\n' {
+                *line += 1;
             }
-        }
-    }
-
-    fn match_single_or_double_character_token(&mut self, c1: char) -> Option<Token<'a>> {
-        use Token::*;
-
-        let c2 = self.iter.clone().next();
-        if let Some(token) = match (c1, c2) {
-            ('!', Some('=')) => Some(BangEqual),
-            ('=', Some('=')) => Some(EqualEqual),
-            ('<', Some('=')) => Some(LessEqual),
-            ('>', Some('=')) => Some(GreaterEqual),
-            _ => None,
-        } {
-            self.iter.next();
-            Some(token)
-        } else if (c1, c2) == ('/', Some('/')) {
-            self.iter.next();
-
-            // comment goes till end of line
-            let raw = self.iter.as_str();
-            let mut length = 0;
-            while let Some(c) = self.iter.next() {
-                if c == '\n' {
-                    self.line += 1;
-                    break;
-                } else {
-                    length += 1;
-                }
-            }
-            let comment = raw.get(0..length).unwrap();
-
-            Some(Comment(comment))
         } else {
-            match c1 {
-                '!' => Some(Bang),
-                '=' => Some(Equal),
-                '<' => Some(Less),
-                '>' => Some(Greater),
-                '/' => Some(Slash),
-                _ => None,
-            }
+            // c == None
+            return Err(ScannerError::UnterminatedString);
         }
     }
 }
@@ -102,21 +41,76 @@ impl<'a: 'b, 'b> Iterator for &'b mut Scanner<'a> {
     type Item = (Location, Result<Token<'a>, ScannerError>);
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some(c1) = self.iter.next() {
+        use Token::*;
+
+        let mut iter = self.iter.clone();
+        while let Some(c1) = iter.next() {
             if c1.is_whitespace() {
+                self.iter = iter.clone();
                 if c1 == '\n' {
                     self.line += 1;
                 }
             } else {
                 let loc = Location { line: self.line }; // pull location now since matching can advance it
-                let parsed = if let Some(parsed) = self.match_single_character_token(c1) {
-                    parsed
-                } else if let Some(token) = self.match_single_or_double_character_token(c1) {
-                    Ok(token)
+
+                if let Some(parsed) = match c1 {
+                    // single character tokens
+                    '(' => Some(Ok(LeftParen)),
+                    ')' => Some(Ok(RightParen)),
+                    '{' => Some(Ok(LeftBrace)),
+                    '}' => Some(Ok(RightBrace)),
+                    ',' => Some(Ok(Comma)),
+                    '.' => Some(Ok(Dot)),
+                    '-' => Some(Ok(Minus)),
+                    '+' => Some(Ok(Plus)),
+                    ';' => Some(Ok(Semicolon)),
+                    '*' => Some(Ok(Star)),
+                    '"' => Some(complete_quote(&mut iter, &mut self.line)),
+                    _ => None,
+                } {
+                    self.iter = iter.clone();
+                    return Some((loc, parsed));
+                }
+
+                let iter_1 = iter.clone();
+                let c2 = iter.next();
+                if let Some(token) = match (c1, c2) {
+                    ('!', Some('=')) => Some(BangEqual),
+                    ('=', Some('=')) => Some(EqualEqual),
+                    ('<', Some('=')) => Some(LessEqual),
+                    ('>', Some('=')) => Some(GreaterEqual),
+                    _ => None,
+                } {
+                    self.iter = iter.clone();
+                    return Some((loc, Ok(token)));
+                } else if (c1, c2) == ('/', Some('/')) {
+                    // comment goes till end of line
+                    let raw = iter.as_str();
+                    let mut length = 0;
+                    while let Some(c) = iter.next() {
+                        if c == '\n' {
+                            self.line += 1;
+                            break;
+                        } else {
+                            length += 1;
+                        }
+                    }
+                    let comment = raw.get(0..length).unwrap();
+                    self.iter = iter;
+                    return Some((loc, Ok(Comment(comment))));
+                } else if let Some(token) = match c1 {
+                    '!' => Some(Bang),
+                    '=' => Some(Equal),
+                    '<' => Some(Less),
+                    '>' => Some(Greater),
+                    '/' => Some(Slash),
+                    _ => None,
+                } {
+                    self.iter = iter_1;
+                    return Some((loc, Ok(token)));
                 } else {
-                    Err(ScannerError::UnexpectedCharacter(c1))
+                    return Some((loc, Err(ScannerError::UnexpectedCharacter(c1))));
                 };
-                return Some((loc, parsed));
             }
         }
 

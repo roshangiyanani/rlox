@@ -92,6 +92,22 @@ impl<'a: 'b, 'b> Iterator for &'b mut Scanner<'a> {
                         iter = last;
                         Some(Ok(Number(number)))
                     }
+                    c if c.is_alphabetic() || c == '_' => {
+                        let mut last = iter.clone();
+                        let mut length = 1;
+                        while let Some(c) = iter.next() {
+                            if c.is_alphanumeric() || c == '_' {
+                                length += 1;
+                                last = iter.clone();
+                            } else {
+                                break;
+                            }
+                        }
+
+                        let identifier = self.iter.as_str().get(0..length).unwrap();
+                        iter = last;
+                        Some(Ok(Identifier(identifier)))
+                    }
                     _ => None,
                 } {
                     self.iter = iter.clone();
@@ -255,6 +271,21 @@ mod tests {
     fn single_character_token(input: &str, t: Token) {
         let tokens = scan(input);
         assert_eq!(tokens, vec![t,])
+    }
+
+    #[test_case("first+", Token::Identifier("first"), Some(Token::Plus); "first_plus_no_whitespace")]
+    #[test_case("first +", Token::Identifier("first"), Some(Token::Plus); "first_plus_whitespace")]
+    #[test_case("first", Token::Identifier("first"), None; "first_EOF")]
+    #[test_case("first ", Token::Identifier("first"), None; "first_whitespace")]
+    #[test_case("_first ", Token::Identifier("_first"), None; "underscore")]
+    fn identifier(input: &str, t1: Token, t2: Option<Token>) {
+        let tokens = scan(input);
+        let expected = if let Some(t2) = t2 {
+            vec![t1, t2]
+        } else {
+            vec![t1]
+        };
+        assert_eq!(tokens, expected)
     }
 
     #[test]

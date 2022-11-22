@@ -89,8 +89,6 @@ impl<'a: 'b, 'b> Iterator for &'b mut Scanner<'a> {
                         let number = self.iter.as_str().get(0..length).unwrap();
                         let number = f64::from_str(number)
                             .expect("invalid numbers shouldn't get past the string splitting");
-                        let s = last.as_str();
-                        println!("{}", s);
                         iter = last;
                         Some(Ok(Number(number)))
                     }
@@ -122,8 +120,6 @@ impl<'a: 'b, 'b> Iterator for &'b mut Scanner<'a> {
                         let number = self.iter.as_str().get(0..length).unwrap();
                         let number = f64::from_str(number)
                             .expect("invalid numbers shouldn't get past the string splitting");
-                        let s = last.as_str();
-                        println!("{}", s);
                         iter = last;
                         Some(Number(number))
                     }

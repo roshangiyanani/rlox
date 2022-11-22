@@ -1,3 +1,4 @@
+use phf::phf_map;
 use std::str::FromStr;
 use std::{fmt::Display, str::Chars};
 use thiserror::Error;
@@ -106,7 +107,12 @@ impl<'a: 'b, 'b> Iterator for &'b mut Scanner<'a> {
 
                         let identifier = self.iter.as_str().get(0..length).unwrap();
                         iter = last;
-                        Some(Ok(Identifier(identifier)))
+
+                        if let Some(&keyword) = KEYWORDS.get(identifier) {
+                            Some(Ok(keyword))
+                        } else {
+                            Some(Ok(Identifier(identifier)))
+                        }
                     }
                     _ => None,
                 } {
@@ -245,6 +251,25 @@ pub enum Token<'a> {
     While,
 }
 
+static KEYWORDS: phf::Map<&'static str, Token<'static>> = phf_map! {
+    "and" => Token::And,
+    "class" => Token::Class,
+    "else" => Token::Else,
+    "false" => Token::False,
+    "for" => Token::For,
+    "fun" => Token::Fun,
+    "if" => Token::If,
+    "nil" => Token::Nil,
+    "or" => Token::Or,
+    "print" => Token::Print,
+    "return" => Token::Return,
+    "super" => Token::Super,
+    "this" => Token::This,
+    "true" => Token::True,
+    "var" => Token::Var,
+    "while" => Token::While,
+};
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -286,6 +311,29 @@ mod tests {
             vec![t1]
         };
         assert_eq!(tokens, expected)
+    }
+
+    #[test_case("and", Token::And)]
+    #[test_case("and ", Token::And; "and space")]
+    #[test_case("ands", Token::Identifier("ands"))]
+    #[test_case("class", Token::Class)]
+    #[test_case("else", Token::Else)]
+    #[test_case("false", Token::False)]
+    #[test_case("for", Token::For)]
+    #[test_case("fun", Token::Fun)]
+    #[test_case("if", Token::If)]
+    #[test_case("nil", Token::Nil)]
+    #[test_case("or", Token::Or)]
+    #[test_case("print", Token::Print)]
+    #[test_case("return", Token::Return)]
+    #[test_case("super", Token::Super)]
+    #[test_case("this", Token::This)]
+    #[test_case("true", Token::True)]
+    #[test_case("var", Token::Var)]
+    #[test_case("while", Token::While)]
+    fn keyword(input: &str, t: Token) {
+        let tokens = scan(input);
+        assert_eq!(tokens, vec![t])
     }
 
     #[test]

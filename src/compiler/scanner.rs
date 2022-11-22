@@ -1,3 +1,4 @@
+use std::str::FromStr;
 use std::{fmt::Display, str::Chars};
 use thiserror::Error;
 
@@ -60,12 +61,36 @@ impl<'a: 'b, 'b> Iterator for &'b mut Scanner<'a> {
                     '{' => Some(Ok(LeftBrace)),
                     '}' => Some(Ok(RightBrace)),
                     ',' => Some(Ok(Comma)),
-                    '.' => Some(Ok(Dot)),
                     '-' => Some(Ok(Minus)),
                     '+' => Some(Ok(Plus)),
                     ';' => Some(Ok(Semicolon)),
                     '*' => Some(Ok(Star)),
                     '"' => Some(complete_quote(&mut iter, &mut self.line)),
+                    '0'..='9' => {
+                        let mut last = iter.clone();
+                        let mut length = 1;
+                        let mut period = false;
+                        while let Some(c) = iter.next() {
+                            if c.is_ascii_digit() {
+                                length += 1;
+                                last = iter.clone();
+                            } else if !period && c == '.' {
+                                period = true;
+                                length += 1;
+                                last = iter.clone();
+                            } else {
+                                break;
+                            }
+                        }
+
+                        let number = self.iter.as_str().get(0..length).unwrap();
+                        let number = f64::from_str(number)
+                            .expect("invalid numbers shouldn't get past the string splitting");
+                        let s = last.as_str();
+                        println!("{}", s);
+                        iter = last;
+                        Some(Ok(Number(number)))
+                    },
                     _ => None,
                 } {
                     self.iter = iter.clone();
@@ -79,26 +104,47 @@ impl<'a: 'b, 'b> Iterator for &'b mut Scanner<'a> {
                     ('=', Some('=')) => Some(EqualEqual),
                     ('<', Some('=')) => Some(LessEqual),
                     ('>', Some('=')) => Some(GreaterEqual),
+                    ('.', Some('0'..='9')) => {
+                        let mut last = iter.clone();
+                        let mut length = 2;
+                        while let Some(c) = iter.next() {
+                            if c.is_ascii_digit() {
+                                length += 1;
+                                last = iter.clone();
+                            } else {
+                                break;
+                            }
+                        }
+
+                        let number = self.iter.as_str().get(0..length).unwrap();
+                        let number = f64::from_str(number)
+                            .expect("invalid numbers shouldn't get past the string splitting");
+                        let s = last.as_str();
+                        println!("{}", s);
+                        iter = last;
+                        Some(Number(number))
+                    },
+                    ('/', Some('/')) => {
+                        // comment goes till end of line
+                        let raw = iter.as_str();
+                        let mut length = 0;
+                        while let Some(c) = iter.next() {
+                            if c == '\n' {
+                                self.line += 1;
+                                break;
+                            } else {
+                                length += 1;
+                            }
+                        }
+                        let comment = raw.get(0..length).unwrap();
+                        Some(Comment(comment))
+                    },
                     _ => None,
                 } {
-                    self.iter = iter.clone();
-                    return Some((loc, Ok(token)));
-                } else if (c1, c2) == ('/', Some('/')) {
-                    // comment goes till end of line
-                    let raw = iter.as_str();
-                    let mut length = 0;
-                    while let Some(c) = iter.next() {
-                        if c == '\n' {
-                            self.line += 1;
-                            break;
-                        } else {
-                            length += 1;
-                        }
-                    }
-                    let comment = raw.get(0..length).unwrap();
                     self.iter = iter;
-                    return Some((loc, Ok(Comment(comment))));
+                    return Some((loc, Ok(token)));
                 } else if let Some(token) = match c1 {
+                    '.' => Some(Dot),
                     '!' => Some(Bang),
                     '=' => Some(Equal),
                     '<' => Some(Less),
@@ -164,7 +210,7 @@ pub enum Token<'a> {
     // literals
     Identifier(&'a str),
     String(&'a str),
-    Number(&'a str),
+    Number(f64),
     // keywords
     And,
     Class,
@@ -233,6 +279,20 @@ mod tests {
         assert_eq!(tokens, vec![t,])
     }
 
+    #[test_case("1.2", Token::Number(1.2f64), None)]
+    #[test_case("1.2.", Token::Number(1.2f64), Some(Token::Dot))]
+    #[test_case(".2", Token::Number(0.2f64), None)]
+    #[test_case("2", Token::Number(2f64), None)]
+    fn number(input: &str, t1: Token, t2: Option<Token>) {
+        let tokens = scan(input);
+        let expected = if let Some(t2) = t2 {
+            vec![t1, t2]
+        } else {
+            vec![t1]
+        };
+        assert_eq!(tokens, expected)
+    }
+
     #[test_case("! =", Token::Bang, Token::Equal)]
     #[test_case("= =", Token::Equal, Token::Equal)]
     #[test_case("> =", Token::Greater, Token::Equal)]
@@ -249,9 +309,9 @@ mod tests {
         let tokens = scan(input);
         assert_eq!(tokens, vec![Token::Comment(""), Token::Plus]);
 
-        let input = "//\n+";
+        let input = "//+";
         let tokens = scan(input);
-        assert_eq!(tokens, vec![Token::Comment(""), Token::Plus]);
+        assert_eq!(tokens, vec![Token::Comment("+")]);
 
         let input = "//";
         let tokens = scan(input);

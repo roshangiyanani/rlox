@@ -56,7 +56,13 @@ fn repl() -> Result<(), Error> {
         let trimmed_line = line.trim_end();
         log::trace!("input: \"{}\"", trimmed_line);
 
-        // todo: interpret
+        let mut scanner = Scanner::new(&line);
+        for (loc, parsed) in &mut scanner {
+            let token = parsed.with_context(|| format!("scanner error at {}", loc))?;
+            log::trace!("{:}: {:?}", loc, token);
+            // todo: interpret
+        }
+
         line.clear();
     }
 

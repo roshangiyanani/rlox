@@ -74,9 +74,12 @@ impl<'a: 'b, 'b> Iterator for &'b mut Scanner<'a> {
                             if c.is_ascii_digit() {
                                 length += 1;
                                 last = iter.clone();
-                            } else if !period && c == '.' {
+                            } else if !period
+                                && c == '.'
+                                && iter.next().map_or(false, |c| '0' <= c && c <= '9')
+                            {
                                 period = true;
-                                length += 1;
+                                length += 2;
                                 last = iter.clone();
                             } else {
                                 break;
@@ -90,7 +93,7 @@ impl<'a: 'b, 'b> Iterator for &'b mut Scanner<'a> {
                         println!("{}", s);
                         iter = last;
                         Some(Ok(Number(number)))
-                    },
+                    }
                     _ => None,
                 } {
                     self.iter = iter.clone();
@@ -123,7 +126,7 @@ impl<'a: 'b, 'b> Iterator for &'b mut Scanner<'a> {
                         println!("{}", s);
                         iter = last;
                         Some(Number(number))
-                    },
+                    }
                     ('/', Some('/')) => {
                         // comment goes till end of line
                         let raw = iter.as_str();
@@ -138,7 +141,7 @@ impl<'a: 'b, 'b> Iterator for &'b mut Scanner<'a> {
                         }
                         let comment = raw.get(0..length).unwrap();
                         Some(Comment(comment))
-                    },
+                    }
                     _ => None,
                 } {
                     self.iter = iter;
@@ -283,6 +286,7 @@ mod tests {
     #[test_case("1.2.", Token::Number(1.2f64), Some(Token::Dot))]
     #[test_case(".2", Token::Number(0.2f64), None)]
     #[test_case("2", Token::Number(2f64), None)]
+    #[test_case("2.", Token::Number(2f64), Some(Token::Dot))]
     fn number(input: &str, t1: Token, t2: Option<Token>) {
         let tokens = scan(input);
         let expected = if let Some(t2) = t2 {
